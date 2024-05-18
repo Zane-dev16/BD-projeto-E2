@@ -6,7 +6,7 @@ Welcome to the repository for the BD Project E2. This guide will walk you throug
 
 ### Prerequisites
 
-- Docker installed on your machine. Install here at: [https://www.docker.com/get-started/]
+- Docker installed on your machine. Find the installation here at [https://www.docker.com/get-started/](https://www.docker.com/get-started/)
 
 ### Instructions
 
