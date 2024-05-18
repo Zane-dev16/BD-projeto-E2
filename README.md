@@ -55,6 +55,6 @@ This command will display a list of all tables in the database.
 
 2. To contribute, place SQL queries in existing SQL files or create a new SQL file in the `data/` folder.
 
-3. You can verify the changes made through new SQL files by restarting the container. 
+3. You can verify the changes made through your added SQL code by restarting the container. 
 
 4. Once you're changes are ready, commit and push them to the repository.
