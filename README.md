@@ -1,8 +1,10 @@
-# Repository Name: bd_proj_e2
+# Projeto Base de Dados E2
+
+The second university project in Databases
 
 ## Usage Guide
 
-Welcome to the repository for the BD Project E2. This guide will walk you through the necessary steps to set up and verify the database.
+This guide will walk you through the necessary steps to set up and verify the database.
 
 ### Prerequisites
 
@@ -46,3 +48,13 @@ psql -U postgres
 \dt
 ```
 This command will display a list of all tables in the database.
+
+## Contribution Guide
+
+1. Note that `psql` commands will only affect the instance of the database that you are connected to locally. psql can be used to interact with the PostgreSQL database for testing purposes and will not be recorded into version control.
+
+2. To contribute, place SQL queries in existing SQL files or create a new SQL file in the `data/` folder.
+
+3. You can verify the changes made through new SQL files by restarting the container. 
+
+4. Once you're changes are ready, commit and push them to the repository.
