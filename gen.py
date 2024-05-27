@@ -234,7 +234,7 @@ def generate_patients():
         generated_nifs.add(nif)
         generated_patient_nifs.add(nif)
         name = fake.name()
-        phone = fake.phone_number()
+        phone = fake.msisdn()
         address = fake.address().replace("\n", ", ")
         birth_date = fake.date_of_birth(minimum_age=18, maximum_age=90)
         query = f"INSERT INTO paciente (ssn, nif, nome, telefone, morada, data_nasc) VALUES ('{ssn}', '{nif}', '{name}', '{phone}', '{address}', '{birth_date}');"
