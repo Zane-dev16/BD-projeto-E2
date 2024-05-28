@@ -3,6 +3,7 @@ import string
 from faker import Faker
 
 fake = Faker("pt_PT")
+import datetime
 
 # Configurações e dados de exemplo
 clinics = [
@@ -133,34 +134,38 @@ def generate_clinics():
     clinic_queries = []
     selected_locations = random.sample(locations, 3)  # Select 3 different locations
     for i, clinic in enumerate(clinics):
-        location = selected_locations[i % len(selected_locations)]
         address = fake.address().replace("\n", ", ")
+        address = address.replace("'", "")
         # Generating a Portuguese postal code format: XXXX-XXX
-        postal_code = fake.postcode().replace(" ", "-")
-        full_address = f"{address} {postal_code} {location}"
         # Generate a random phone number
         phone_number = fake.phone_number()
         # Ensure the phone number only contains digits
         phone_number = ''.join(filter(str.isdigit, phone_number))
         
-        query = f"INSERT INTO clinica (nome, telefone, morada) VALUES ('{clinic}', '{phone_number}', '{full_address}');"
+        query = f"INSERT INTO clinica (nome, telefone, morada) VALUES ('{clinic}', '{phone_number}', '{address}');"
         clinic_queries.append(query)
     return clinic_queries
 
 def generate_nurses():
     nurse_queries = []
-    generated_nifs = set()
     for clinic in clinics:
-        for _ in range(random.randint(5, 6)):
-            nif = "".join(random.choices(string.digits, k=9))  # Generate a 9-digit NIF
-            while nif in generated_nifs:  # Regenerate NIF if it's already been used
-                nif = "".join(random.choices(string.digits, k=9))
-            generated_nifs.add(nif)
-            name = fake.name()
-            phone = fake.phone_number()
-            phone = ''.join(filter(str.isdigit, phone))
+        num_nurses = random.randint(5, 6)  # Generate between 5 and 6 nurses per clinic
+        selected_location = random.choice(locations)
+        for _ in range(num_nurses):
+            nurse_name = fake.name()
             address = fake.address().replace("\n", ", ")
-            query = f"INSERT INTO enfermeiro (nif, nome, telefone, morada, nome_clinica) VALUES ('{nif}', '{name}', '{phone}', '{address}', '{clinic}');"
+            address = address.replace("'", "")
+            # Generating a Portuguese postal code format: XXXX-XXX
+            postal_code = fake.postcode().replace(" ", "-")
+            full_address = f"{address}, {postal_code} {selected_location}"
+            # Generate a random phone number
+            phone_number = fake.phone_number()
+            # Ensure the phone number only contains digits
+            phone_number = ''.join(filter(str.isdigit, phone_number))
+            # Generate a random NIF
+            nif = ''.join([str(random.randint(0, 9)) for _ in range(9)])
+            
+            query = f"INSERT INTO enfermeiro (nif, nome, telefone, morada, nome_clinica) VALUES ('{nif}', '{nurse_name}', '{phone_number}', '{full_address}', '{clinic}');"
             nurse_queries.append(query)
     return nurse_queries
 
@@ -190,43 +195,31 @@ def generate_doctors():
     return doctor_queries
 
 
+doctor_clinic_day_assignments = {}  # Global dictionary to store assignments
+clinic_day_doctor_assignments = {}
 def assign_doctors_to_clinics():
-    assignment_queries = []
-    doctors = list(generated_doc_nifs)  # Use NIFs instead of names
-    doctor_clinic_day_assignments = {doctor: [] for doctor in doctors}
+    global doctor_clinic_day_assignments
+    doctor_clinic_day_assignments = {doctor: [] for doctor in generated_doc_nifs}
+    global clinic_day_doctor_assignments
+    doc_nifs = list(generated_doc_nifs)
     clinic_day_doctor_assignments = {
         (clinic, day): [] for clinic in clinics for day in range(1, 8)
     }
 
-    # Assign each doctor to two clinics on random days
-    for doctor in doctors:
-        for _ in range(2):
-            clinic, day = random.choice(list(clinic_day_doctor_assignments.keys()))
-            if (clinic, day) not in doctor_clinic_day_assignments[doctor]:
-                doctor_clinic_day_assignments[doctor].append((clinic, day))
-                clinic_day_doctor_assignments[(clinic, day)].append(doctor)
+    # Counter to keep track of the doctor index
+    doctor_index = 0
 
-    # Ensure each clinic on each day has at least eight doctors
-    for (clinic, day), assigned_doctors in clinic_day_doctor_assignments.items():
-        while len(assigned_doctors) < 8:
-            unassigned_doctors = [
-                doctor
-                for doctor in doctors
-                if len(doctor_clinic_day_assignments[doctor]) < 2
-            ]
-            if unassigned_doctors:
-                new_doctor = random.choice(unassigned_doctors)
-                assigned_doctors.append(new_doctor)
-                doctor_clinic_day_assignments[new_doctor].append((clinic, day))
-            else:
-                break
-
-    # Generate assignment queries
-    for doctor, assigned_clinic_days in doctor_clinic_day_assignments.items():
-        for clinic, day in assigned_clinic_days:
-            query = f"INSERT INTO trabalha (nif, nome, dia_da_semana) VALUES ('{doctor}', '{clinic}', {day});"
+    # Iterate through the days of the week
+    assignment_queries = []
+    for i, day in enumerate(range(1, 8)):
+        # Iterate through the doctors 8 times per day
+        for j, doctor in enumerate(doc_nifs):
+            clinic = clinics[(i+j) % len(clinics)]  # Modulo to cycle through clinics
+            doctor_clinic_day_assignments[doctor].append((clinic, day))
+            clinic_day_doctor_assignments[(clinic, day)].append(doctor)
+            doctor_index = (doctor_index + 1) % len(doc_nifs)  # Cycle through doctors
+            query = f"INSERT INTO trabalha (nif, nome, dia_da_semana) VALUES ('{doctor}', '{clinic}', {day-1});"
             assignment_queries.append(query)
-
     return assignment_queries
 
 
@@ -246,37 +239,61 @@ def generate_patients():
         phone = fake.phone_number()
         phone = ''.join(filter(str.isdigit, phone))
         address = fake.address().replace("\n", ", ")
+        address = address.replace("'", "")
         birth_date = fake.date_of_birth(minimum_age=18, maximum_age=90)
         query = f"INSERT INTO paciente (ssn, nif, nome, telefone, morada, data_nasc) VALUES ('{ssn}', '{nif}', '{name}', '{phone}', '{address}', '{birth_date}');"
         patient_queries.append(query)
     return patient_queries
 
-
 def generate_appointments():
-
+    appointment_queries = []
+    generated_appointments = []
     patient_ssns = list(generated_ssns)
-    doctor_nifs = list(generated_doc_nifs)
-    clinic_names = list(clinics)
+    patient_index = 0
+    iff = 0
+    global hi
+    # Iterate over each day in 2023 and 2024
+    for year in [2023, 2024]:
+        for month in range(1, 13):
+            for day in range(1, 32):
+                try:
+                    date = datetime.date(year, month, day)
+                except ValueError:
+                    # Skip invalid dates (e.g., February 30th)
+                    continue
+                
+                # Iterate over each clinic
+                for clinic in clinics:
+                    # Get the list of doctors working at the clinic on this day
+                    doctors_working = clinic_day_doctor_assignments[(clinic, ((date.weekday() + 1) % 7) + 1)]
 
-    # Ensure each patient has at least one consulta
-    for patient_ssn in patient_ssns:
-        doctor_nif = random.choice(doctor_nifs)
-        clinic = random.choice(clinic_names)
-        date = fake.date_between(start_date="-1y", end_date="today")
-        time = fake.time()
-        sns_code = "".join(
-            random.choices(string.digits, k=12)
-        )  # Generate a 12-digit SNS code
-        while (
-            sns_code in generated_sns_codes
-        ):  # Regenerate SNS code if it's already been used
-            sns_code = "".join(random.choices(string.digits, k=12))
-        generated_sns_codes.add(sns_code)
-        query = f"INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}', '{sns_code}');"
-        consulta_queries.append(query)
-
-    return consulta_queries
-
+                    # Iterate over each doctor assigned to the clinic on this day
+                    for j in range(20):
+                        # Get the next available patient
+                        patient_ssn = patient_ssns[patient_index % len(patient_ssns)]
+                        doctor_nif = doctors_working[j % len(doctors_working)]
+                        if(iff == 0):
+                            hi = doctors_working
+                        iff += 1
+                        while True:
+                            # Generate a random time (hour:minute)
+                            hour = random.choice([8, 9, 10, 11, 14, 15, 16, 17])  # Selecting from 8-11h and 14-17h
+                            minute = random.choice([0, 30])  # Selecting 0 or 30 minutes
+                            time = f"{hour:02}:{minute:02}"
+                            
+                            # Check if the combination of nif, date, and time is unique
+                            if (doctor_nif, date, time) not in generated_appointments:
+                                break  # Unique combination found
+                            
+                        # Construct the SQL query for the appointment and add it to the list
+                        query = f"INSERT INTO consulta (ssn, nif, nome, data, hora) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}');"
+                        generated_appointments.append((doctor_nif, date, time))  # Add the combination to the list
+                        appointment_queries.append(query)
+                        
+                        # Increment the patient index
+                        patient_index += 1
+    
+    return appointment_queries
 
 def generate_prescriptions():
     prescription_queries = []
@@ -334,3 +351,4 @@ queries.extend(generate_metric_observations())
 # Printar todas as queries
 for query in queries:
     print(query)
+
