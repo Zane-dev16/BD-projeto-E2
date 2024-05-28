@@ -131,14 +131,21 @@ consulta_queries = []
 
 def generate_clinics():
     clinic_queries = []
-    for clinic in clinics:
-        location = random.choice(locations)
+    selected_locations = random.sample(locations, 3)  # Select 3 different locations
+    for i, clinic in enumerate(clinics):
+        location = selected_locations[i % len(selected_locations)]
         address = fake.address().replace("\n", ", ")
-        postal_code = fake.postcode()
-        query = f"INSERT INTO clinica (name, address, postal_code, location) VALUES ('{clinic}', '{address}', '{postal_code}', '{location}');"
+        # Generating a Portuguese postal code format: XXXX-XXX
+        postal_code = fake.postcode().replace(" ", "-")
+        full_address = f"{address} {postal_code} {location}"
+        # Generate a random phone number
+        phone_number = fake.phone_number()
+        # Ensure the phone number only contains digits
+        phone_number = ''.join(filter(str.isdigit, phone_number))
+        
+        query = f"INSERT INTO clinica (nome, telefone, morada) VALUES ('{clinic}', '{phone_number}', '{full_address}');"
         clinic_queries.append(query)
     return clinic_queries
-
 
 def generate_nurses():
     nurse_queries = []
