@@ -10,4 +10,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 ALTER TABLE consulta
-ADD CHECK (check_medico_clinica_dia(nif, nome, data));
+ADD CONSTRAINT medico_clinica_dia_check CHECK (check_medico_clinica_dia(nif, nome, data));

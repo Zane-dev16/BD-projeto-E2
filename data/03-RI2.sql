@@ -5,4 +5,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 ALTER TABLE consulta
-ADD CHECK (check_medico_paciente_nif(nif, ssn));
+ADD CONSTRAINT consultar_proprio_medico_check CHECK (check_medico_paciente_nif(nif, ssn));
