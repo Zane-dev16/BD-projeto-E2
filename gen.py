@@ -158,6 +158,7 @@ def generate_nurses():
             generated_nifs.add(nif)
             name = fake.name()
             phone = fake.phone_number()
+            phone = ''.join(filter(str.isdigit, phone))
             address = fake.address().replace("\n", ", ")
             query = f"INSERT INTO enfermeiro (nif, nome, telefone, morada, nome_clinica) VALUES ('{nif}', '{name}', '{phone}', '{address}', '{clinic}');"
             nurse_queries.append(query)
@@ -182,6 +183,7 @@ def generate_doctors():
         generated_nifs.add(nif)
         generated_doc_nifs.add(nif)
         phone = fake.phone_number()
+        phone = ''.join(filter(str.isdigit, phone))
         address = fake.address().replace("\n", ", ")
         query = f"INSERT INTO medico (nif, nome, telefone, morada, especialidade) VALUES ('{nif}', '{name}', '{phone}', '{address}', '{specialty}');"
         doctor_queries.append(query)
@@ -241,7 +243,8 @@ def generate_patients():
         generated_nifs.add(nif)
         generated_patient_nifs.add(nif)
         name = fake.name()
-        phone = fake.msisdn()
+        phone = fake.phone_number()
+        phone = ''.join(filter(str.isdigit, phone))
         address = fake.address().replace("\n", ", ")
         birth_date = fake.date_of_birth(minimum_age=18, maximum_age=90)
         query = f"INSERT INTO paciente (ssn, nif, nome, telefone, morada, data_nasc) VALUES ('{ssn}', '{nif}', '{name}', '{phone}', '{address}', '{birth_date}');"
