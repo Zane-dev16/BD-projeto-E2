@@ -248,7 +248,6 @@ def generate_patients():
 def generate_appointments():
     generated_patient_appointments = []
     generated_doctor_appointments = []
-    consulta_queries = []
     patient_ssns = list(generated_ssns)
     patient_index = 0
     codigo_sns_counter = 1  # Start the codigo_sns counter at 1
@@ -311,9 +310,7 @@ def generate_prescriptions():
         for _ in range(medicines):
             medicine = fake.word()
             quantity = random.randint(1, 3)
-            sns_code = consulta.split("'")[
-                -2
-            ]
+            sns_code = consulta.split("'")[-2]
             query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
             prescription_queries.append(query)
     return prescription_queries
