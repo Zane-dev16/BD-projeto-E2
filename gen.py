@@ -312,7 +312,7 @@ def generate_prescriptions():
             medicine = fake.word()
             quantity = random.randint(1, 3)
             sns_code = consulta.split("'")[
-                1
+                -2
             ]
             query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
             prescription_queries.append(query)
