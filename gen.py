@@ -173,12 +173,19 @@ def generate_nurses():
 def generate_doctors():
     doctor_queries = []
     doctors = []
+    doctor_names = set()
     for i in range(general_practitioners):
         name = fake.name()
+        while name in doctor_names:
+            name = fake.name()
+        doctor_names.add(name)
         specialty = "Clínica Geral"
         doctors.append((name, specialty))
     for i in range(other_specialists):
         name = fake.name()
+        while name in doctor_names:
+            name = fake.name()
+        doctor_names.add(name)
         specialty = random.choice(specialties)
         doctors.append((name, specialty))
     for name, specialty in doctors:
@@ -307,8 +314,12 @@ def generate_prescriptions():
     for i in range(stop_index):
         consulta = consulta_queries[i]
         medicines = random.randint(1, 6)
+        generated_medicines = set()
         for _ in range(medicines):
             medicine = fake.word()
+            while medicine in generated_medicines:
+                medicine = fake.word()
+            generated_medicines.add(medicine)
             quantity = random.randint(1, 3)
             sns_code = consulta.split("'")[-2]
             query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
