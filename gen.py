@@ -173,12 +173,19 @@ def generate_nurses():
 def generate_doctors():
     doctor_queries = []
     doctors = []
+    doctor_names = set()
     for i in range(general_practitioners):
         name = fake.name()
+        while name in doctor_names:
+            name = fake.name()
+        doctor_names.add(name)
         specialty = "Clínica Geral"
         doctors.append((name, specialty))
     for i in range(other_specialists):
         name = fake.name()
+        while name in doctor_names:
+            name = fake.name()
+        doctor_names.add(name)
         specialty = random.choice(specialties)
         doctors.append((name, specialty))
     for name, specialty in doctors:
@@ -246,12 +253,12 @@ def generate_patients():
     return patient_queries
 
 def generate_appointments():
-    appointment_queries = []
-    generated_appointments = []
+    generated_patient_appointments = []
+    generated_doctor_appointments = []
     patient_ssns = list(generated_ssns)
     patient_index = 0
-    iff = 0
-    global hi
+    codigo_sns_counter = 1  # Start the codigo_sns counter at 1
+
     # Iterate over each day in 2023 and 2024
     for year in [2023, 2024]:
         for month in range(1, 13):
@@ -272,9 +279,7 @@ def generate_appointments():
                         # Get the next available patient
                         patient_ssn = patient_ssns[patient_index % len(patient_ssns)]
                         doctor_nif = doctors_working[j % len(doctors_working)]
-                        if(iff == 0):
-                            hi = doctors_working
-                        iff += 1
+
                         while True:
                             # Generate a random time (hour:minute)
                             hour = random.choice([8, 9, 10, 11, 14, 15, 16, 17])  # Selecting from 8-11h and 14-17h
@@ -282,42 +287,54 @@ def generate_appointments():
                             time = f"{hour:02}:{minute:02}"
                             
                             # Check if the combination of nif, date, and time is unique
-                            if (doctor_nif, date, time) not in generated_appointments:
+                            if (patient_ssn, date, time) not in generated_patient_appointments and (doctor_nif, date, time) not in generated_doctor_appointments:
                                 break  # Unique combination found
-                            
+                        
+                        
+                        # Generate the unique codigo_sns
+                        codigo_sns = f"{codigo_sns_counter:012d}"
+                        codigo_sns_counter += 1  # Increment the counter
+                        
                         # Construct the SQL query for the appointment and add it to the list
-                        query = f"INSERT INTO consulta (ssn, nif, nome, data, hora) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}');"
-                        generated_appointments.append((doctor_nif, date, time))  # Add the combination to the list
-                        appointment_queries.append(query)
+                        query = f"INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}', '{codigo_sns}');"
+                        generated_patient_appointments.append((patient_ssn, date, time))  # Add the combination to the list
+                        generated_doctor_appointments.append((doctor_nif, date, time))  # Add the combination to the list
+                        consulta_queries.append(query)
                         
                         # Increment the patient index
                         patient_index += 1
     
-    return appointment_queries
+    return consulta_queries
 
 def generate_prescriptions():
     prescription_queries = []
-    for consulta in consulta_queries:
-        if random.random() < 0.8:
-            medicines = random.randint(1, 6)
-            for _ in range(medicines):
+    # Calculate the stopping point (80% of the list length)
+    stop_index = int(len(consulta_queries) * 0.8)
+    # Iterate through the list until the stopping point
+    for i in range(stop_index):
+        consulta = consulta_queries[i]
+        medicines = random.randint(1, 6)
+        generated_medicines = set()
+        for _ in range(medicines):
+            medicine = fake.word()
+            while medicine in generated_medicines:
                 medicine = fake.word()
-                quantity = random.randint(1, 3)
-                sns_code = consulta.split("'")[
-                    1
-                ]  # Extract the SNS code from the consulta query
-                query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
-                prescription_queries.append(query)
+            generated_medicines.add(medicine)
+            quantity = random.randint(1, 3)
+            sns_code = consulta.split("'")[-2]
+            query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
+            prescription_queries.append(query)
     return prescription_queries
 
 
 def generate_symptom_observations():
     symptom_queries = []
+    id = 0
     for consulta in consulta_queries:
         symptoms = random.randint(1, 5)
-        for _ in range(symptoms):
-            symptom = random.choice(parameters_symptoms)
-            id = consulta.split(" ")[2]  # Extract the ID from the consulta query
+        id += 1
+        for i in range(symptoms):
+            symptom = parameters_symptoms[(i + id) % len(parameters_metrics)]
             query = f"INSERT INTO observacao (id, parametro, valor) VALUES ({id}, '{symptom}', NULL);"
             symptom_queries.append(query)
     return symptom_queries
@@ -325,12 +342,13 @@ def generate_symptom_observations():
 
 def generate_metric_observations():
     metric_queries = []
+    id = 0
     for consulta in consulta_queries:
+        id += 1
         metrics = random.randint(0, 3)
-        for _ in range(metrics):
-            metric = random.choice(parameters_metrics)
+        for i in range(metrics):
+            metric = parameters_metrics[(i + id) % len(parameters_metrics)]
             value = round(random.uniform(0.0, 100.0), 2)
-            id = consulta.split(" ")[2]  # Extract the ID from the consulta query
             query = f"INSERT INTO observacao (id, parametro, valor) VALUES ({id}, '{metric}', {value});"
             metric_queries.append(query)
     return metric_queries
