@@ -191,16 +191,19 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
             if cur.fetchone() == None:
                 return jsonify({"message": "Doctor not working at the clinic at that time.", "status": "error"}), 409
             cur.execute(
+               """ SELECT MAX(id) from consulta """
+            )
+            id = cur.fetchone()
+            if id == None:
+                id = 1
+            else:
+                id = id[0] + 1
+            cur.execute(
                 """
-                INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
-                VALUES (paciente, medico, clinica, data, hora, NULL);
-                WHERE paciente = %(paciente)s
-                AND medico = %(medico)s
-                AND clinica = %(clinica)s
-                AND data = %(data)s
-                AND hora = %(hora)s;
+                INSERT INTO consulta (id, ssn, nif, nome, data, hora, codigo_sns)
+                VALUES (id, paciente, medico, clinica, data, hora, NULL);
                 """,
-                {"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
+                {"id": id,"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
             )
             # The result of this statement is persisted immediately by the database
             # because the connection is in autocommit mode.
