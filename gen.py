@@ -246,7 +246,8 @@ def generate_patients():
     return patient_queries
 
 def generate_appointments():
-    generated_appointments = []
+    generated_patient_appointments = []
+    generated_doctor_appointments = []
     consulta_queries = []
     patient_ssns = list(generated_ssns)
     patient_index = 0
@@ -280,8 +281,9 @@ def generate_appointments():
                             time = f"{hour:02}:{minute:02}"
                             
                             # Check if the combination of nif, date, and time is unique
-                            if (doctor_nif, date, time) not in generated_appointments:
+                            if (patient_ssn, date, time) not in generated_patient_appointments and (doctor_nif, date, time) not in generated_doctor_appointments:
                                 break  # Unique combination found
+                        
                         
                         # Generate the unique codigo_sns
                         codigo_sns = f"{codigo_sns_counter:012d}"
@@ -289,7 +291,8 @@ def generate_appointments():
                         
                         # Construct the SQL query for the appointment and add it to the list
                         query = f"INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}', '{codigo_sns}');"
-                        generated_appointments.append((doctor_nif, date, time))  # Add the combination to the list
+                        generated_patient_appointments.append((patient_ssn, date, time))  # Add the combination to the list
+                        generated_doctor_appointments.append((doctor_nif, date, time))  # Add the combination to the list
                         consulta_queries.append(query)
                         
                         # Increment the patient index
