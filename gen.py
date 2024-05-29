@@ -246,7 +246,6 @@ def generate_patients():
     return patient_queries
 
 def generate_appointments():
-    appointment_queries = []
     generated_appointments = []
     patient_ssns = list(generated_ssns)
     patient_index = 0
@@ -288,36 +287,40 @@ def generate_appointments():
                         # Construct the SQL query for the appointment and add it to the list
                         query = f"INSERT INTO consulta (ssn, nif, nome, data, hora) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}');"
                         generated_appointments.append((doctor_nif, date, time))  # Add the combination to the list
-                        appointment_queries.append(query)
+                        consulta_queries.append(query)
                         
                         # Increment the patient index
                         patient_index += 1
     
-    return appointment_queries
+    return consulta_queries
 
 def generate_prescriptions():
     prescription_queries = []
-    for consulta in consulta_queries:
-        if random.random() < 0.8:
-            medicines = random.randint(1, 6)
-            for _ in range(medicines):
-                medicine = fake.word()
-                quantity = random.randint(1, 3)
-                sns_code = consulta.split("'")[
-                    1
-                ]  # Extract the SNS code from the consulta query
-                query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
-                prescription_queries.append(query)
+    # Calculate the stopping point (80% of the list length)
+    stop_index = int(len(consulta_queries) * 0.8)
+    # Iterate through the list until the stopping point
+    for i in range(stop_index):
+        consulta = consulta_queries[i]
+        medicines = random.randint(1, 6)
+        for _ in range(medicines):
+            medicine = fake.word()
+            quantity = random.randint(1, 3)
+            sns_code = consulta.split("'")[
+                1
+            ]  # Extract the SNS code from the consulta query
+            query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
+            prescription_queries.append(query)
     return prescription_queries
 
 
 def generate_symptom_observations():
     symptom_queries = []
+    id = 0
     for consulta in consulta_queries:
         symptoms = random.randint(1, 5)
+        id += 1
         for _ in range(symptoms):
             symptom = random.choice(parameters_symptoms)
-            id = consulta.split(" ")[2]  # Extract the ID from the consulta query
             query = f"INSERT INTO observacao (id, parametro, valor) VALUES ({id}, '{symptom}', NULL);"
             symptom_queries.append(query)
     return symptom_queries
@@ -325,12 +328,13 @@ def generate_symptom_observations():
 
 def generate_metric_observations():
     metric_queries = []
+    id = 0
     for consulta in consulta_queries:
+        id += 1
         metrics = random.randint(0, 3)
         for _ in range(metrics):
             metric = random.choice(parameters_metrics)
             value = round(random.uniform(0.0, 100.0), 2)
-            id = consulta.split(" ")[2]  # Extract the ID from the consulta query
             query = f"INSERT INTO observacao (id, parametro, valor) VALUES ({id}, '{metric}', {value});"
             metric_queries.append(query)
     return metric_queries
