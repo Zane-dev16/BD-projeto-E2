@@ -6,7 +6,7 @@ CREATE TABLE horarios_validos (
 );
 
 WITH RECURSIVE dates AS (
-    SELECT DATE '2024-01-01' AS date
+    SELECT DATE('2024-01-01')::date AS date
     UNION ALL
     SELECT date + INTERVAL '1 day'
     FROM dates
