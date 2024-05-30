@@ -142,9 +142,10 @@ def generate_clinics():
         # Ensure the phone number only contains digits
         phone_number = ''.join(filter(str.isdigit, phone_number))
         
-        query = f"INSERT INTO clinica (nome, telefone, morada) VALUES ('{clinic}', '{phone_number}', '{address}');"
+        query = f"('{clinic}', '{phone_number}', '{address}')"
         clinic_queries.append(query)
-    return clinic_queries
+    return "INSERT INTO clinica (nome, telefone, morada) VALUES " + ", ".join(clinic_queries) + ";"
+
 
 def generate_nurses():
     nurse_queries = []
@@ -165,9 +166,9 @@ def generate_nurses():
             # Generate a random NIF
             nif = ''.join([str(random.randint(0, 9)) for _ in range(9)])
             
-            query = f"INSERT INTO enfermeiro (nif, nome, telefone, morada, nome_clinica) VALUES ('{nif}', '{nurse_name}', '{phone_number}', '{full_address}', '{clinic}');"
+            query = f"('{nif}', '{nurse_name}', '{phone_number}', '{full_address}', '{clinic}')"
             nurse_queries.append(query)
-    return nurse_queries
+    return "INSERT INTO enfermeiro (nif, nome, telefone, morada, nome_clinica) VALUES " + ", ".join(nurse_queries) + ";"
 
 
 def generate_doctors():
@@ -197,9 +198,9 @@ def generate_doctors():
         phone = fake.phone_number()
         phone = ''.join(filter(str.isdigit, phone))
         address = fake.address().replace("\n", ", ")
-        query = f"INSERT INTO medico (nif, nome, telefone, morada, especialidade) VALUES ('{nif}', '{name}', '{phone}', '{address}', '{specialty}');"
+        query = f"('{nif}', '{name}', '{phone}', '{address}', '{specialty}')"
         doctor_queries.append(query)
-    return doctor_queries
+    return "INSERT INTO medico (nif, nome, telefone, morada, especialidade) VALUES " + ", ".join(doctor_queries) + ";"
 
 
 doctor_clinic_day_assignments = {}  # Global dictionary to store assignments
@@ -225,9 +226,9 @@ def assign_doctors_to_clinics():
             doctor_clinic_day_assignments[doctor].append((clinic, day))
             clinic_day_doctor_assignments[(clinic, day)].append(doctor)
             doctor_index = (doctor_index + 1) % len(doc_nifs)  # Cycle through doctors
-            query = f"INSERT INTO trabalha (nif, nome, dia_da_semana) VALUES ('{doctor}', '{clinic}', {day-1});"
+            query = f"('{doctor}', '{clinic}', {day-1})"
             assignment_queries.append(query)
-    return assignment_queries
+    return "INSERT INTO trabalha (nif, nome, dia_da_semana) VALUES " + ", ".join(assignment_queries) + ";"
 
 
 def generate_patients():
@@ -248,9 +249,10 @@ def generate_patients():
         address = fake.address().replace("\n", ", ")
         address = address.replace("'", "")
         birth_date = fake.date_of_birth(minimum_age=18, maximum_age=90)
-        query = f"INSERT INTO paciente (ssn, nif, nome, telefone, morada, data_nasc) VALUES ('{ssn}', '{nif}', '{name}', '{phone}', '{address}', '{birth_date}');"
+        query = f"('{ssn}', '{nif}', '{name}', '{phone}', '{address}', '{birth_date}')"
         patient_queries.append(query)
-    return patient_queries
+    return "INSERT INTO paciente (ssn, nif, nome, telefone, morada, data_nasc) VALUES " + ", ".join(patient_queries) + ";"
+
 
 def generate_appointments():
     generated_patient_appointments = []
@@ -259,6 +261,7 @@ def generate_appointments():
     patient_index = 0
     codigo_sns_counter = 1  # Start the codigo_sns counter at 1
 
+    appointment_queries = []
     # Iterate over each day in 2023 and 2024
     for year in [2023, 2024]:
         for month in range(1, 13):
@@ -296,7 +299,7 @@ def generate_appointments():
                         codigo_sns_counter += 1  # Increment the counter
                         
                         # Construct the SQL query for the appointment and add it to the list
-                        query = f"INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns) VALUES ('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}', '{codigo_sns}');"
+                        query = f"('{patient_ssn}', '{doctor_nif}', '{clinic}', '{date}', '{time}', '{codigo_sns}')"
                         generated_patient_appointments.append((patient_ssn, date, time))  # Add the combination to the list
                         generated_doctor_appointments.append((doctor_nif, date, time))  # Add the combination to the list
                         consulta_queries.append(query)
@@ -304,7 +307,8 @@ def generate_appointments():
                         # Increment the patient index
                         patient_index += 1
     
-    return consulta_queries
+    return "INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns) VALUES " + ", ".join(consulta_queries) + ";"
+
 
 def generate_prescriptions():
     prescription_queries = []
@@ -322,9 +326,9 @@ def generate_prescriptions():
             generated_medicines.add(medicine)
             quantity = random.randint(1, 3)
             sns_code = consulta.split("'")[-2]
-            query = f"INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES ('{sns_code}', '{medicine}', {quantity});"
+            query = f"('{sns_code}', '{medicine}', {quantity})"
             prescription_queries.append(query)
-    return prescription_queries
+    return "INSERT INTO receita (codigo_sns, medicamento, quantidade) VALUES " + ", ".join(prescription_queries) + ";"
 
 
 def generate_symptom_observations():
@@ -335,9 +339,9 @@ def generate_symptom_observations():
         id += 1
         for i in range(symptoms):
             symptom = parameters_symptoms[(i + id) % len(parameters_metrics)]
-            query = f"INSERT INTO observacao (id, parametro, valor) VALUES ({id}, '{symptom}', NULL);"
+            query = f"({id}, '{symptom}', NULL)"
             symptom_queries.append(query)
-    return symptom_queries
+    return "INSERT INTO observacao (id, parametro, valor) VALUES " + ", ".join(symptom_queries) + ";"
 
 
 def generate_metric_observations():
@@ -349,24 +353,23 @@ def generate_metric_observations():
         for i in range(metrics):
             metric = parameters_metrics[(i + id) % len(parameters_metrics)]
             value = round(random.uniform(0.0, 100.0), 2)
-            query = f"INSERT INTO observacao (id, parametro, valor) VALUES ({id}, '{metric}', {value});"
+            query = f"({id}, '{metric}', {value})"
             metric_queries.append(query)
-    return metric_queries
+    return "INSERT INTO observacao (id, parametro, valor) VALUES " + ", ".join(metric_queries) + ";"
 
 
 # Gerar todas as queries
 queries = []
-queries.extend(generate_clinics())
-queries.extend(generate_nurses())
-queries.extend(generate_doctors())
-queries.extend(assign_doctors_to_clinics())
-queries.extend(generate_patients())
-queries.extend(generate_appointments())
-queries.extend(generate_prescriptions())
-queries.extend(generate_symptom_observations())
-queries.extend(generate_metric_observations())
+queries.append(generate_clinics())
+queries.append(generate_nurses())
+queries.append(generate_doctors())
+queries.append(assign_doctors_to_clinics())
+queries.append(generate_patients())
+queries.append(generate_appointments())
+queries.append(generate_prescriptions())
+queries.append(generate_symptom_observations())
+queries.append(generate_metric_observations())
 
 # Printar todas as queries
 for query in queries:
     print(query)
-
