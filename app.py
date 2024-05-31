@@ -347,7 +347,20 @@ def marcar_consulta(clinica):
     # The connection is returned to the pool at the end of the `connection()` context but,
     # because it is not in a transaction state, no COMMIT is executed.
 
-    return "", 204
+    return (
+        jsonify(
+        {
+            "message": "Marcação bem sucedida.",
+            "consulta": {
+                "clinica": clinica,
+                "paciente": paciente,
+                "médico": medico,    
+                "data": data,
+                "hora": hora,
+            },
+        }
+    ), 201
+    )
 
 
 @app.route(
@@ -484,7 +497,21 @@ def cancelar_consulta(clinica):
 
     # The connection is returned to the pool at the end of the `connection()` context
 
-    return "", 204
+    return (
+        jsonify(
+        {
+            "message": "Consulta desmarcada.",
+            "desmarcação": {
+                "clinica": clinica,
+                "paciente": paciente,
+                "médico": medico,    
+                "data": data,
+                "hora": hora,
+            },
+        }
+    ), 200
+    )
+
 
 
 @app.route("/ping", methods=("GET",))
