@@ -159,29 +159,29 @@ def check_time(data, hora):
         return -1
     ##check if it is valid time format
     try:
-        hora_check = datetime.strptime(hora, "%H:%M")
+        hora_check = datetime.strptime(hora, "%H:%M:%S")
     except ValueError:
         return -1
     if data_check.date() < date.today() or (
-        data_check.date() == date.today() and hora_check < datetime.now().time()
+        data_check.date() == date.today() and hora_check < datetime.now()
     ):
         return 1
     if (
-        hora_check < datetime.strptime("09:00", "%H:%M").time()
-        or hora_check > datetime.strptime("18:30", "%H:%M").time()
+        hora_check < datetime.strptime("09:00:00", "%H:%M:%S")
+        or hora_check > datetime.strptime("18:30:00", "%H:%M:%S")
         or (
-            hora_check > datetime.strptime("12:30", "%H:%M").time()
-            and hora_check < datetime.strptime("14:00", "%H:%M").time()
+            hora_check > datetime.strptime("12:30:00", "%H:%M:%S")
+            and hora_check < datetime.strptime("14:00:00", "%H:%M:%S")
         )
     ):
         return 2
-    if hora_check.minute != 30 and hora_check.minute != 0:
+    if (hora_check.minute != 30 and hora_check.minute != 0) or hora_check.second != 0:
         return 2
     return 0
 
 
 @app.route("/a/<clinica>/registar/", methods=("POST",))
-def marcar_consulta(clinica, paciente, medico, data, hora):
+def marcar_consulta(clinica):
     """Marca uma consulta na <clinica>"""
 
     paciente = request.args.get("paciente")
@@ -214,7 +214,7 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
 
     with pool.connection() as conn:
         with conn.cursor() as cur:
-            medico = cur.execute(
+            medico_tp = cur.execute(
                 """
                 SELECT 1
                 FROM medico m
@@ -222,7 +222,7 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
                 """,
                 {"medico": medico},
             ).fetchone()
-            if medico is None:
+            if medico_tp is None:
                 return (
                     jsonify({"message": "Médico não encontrado.", "status": "error"}),
                     404,
@@ -242,7 +242,7 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
                     404,
                 )
 
-            clinica = cur.execute(
+            clinica_tp = cur.execute(
                 """
                 SELECT 1
                 FROM clinica c
@@ -250,13 +250,13 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
                 """,
                 {"clinica": clinica},
             ).fetchone()
-            if clinica is None:
+            if clinica_tp is None:
                 return (
                     jsonify({"message": "Clínica não encontrada.", "status": "error"}),
                     404,
                 )
 
-            trabalha = cur.execute(
+            trabalha_tp = cur.execute(
                 """
                 SELECT 1
                 FROM trabalha t
@@ -266,7 +266,7 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
                 """,
                 {"medico": medico, "clinica": clinica, "data_consulta": data},
             ).fetchone()
-            if trabalha is None:
+            if trabalha_tp is None:
                 return (
                     jsonify(
                         {
@@ -360,7 +360,7 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
         "POST",
     ),
 )
-def cancelar_consulta(clinica, paciente, medico, data, hora):
+def cancelar_consulta(clinica):
     """Cancela uma marcação de consulta que ainda não se realizou na <clinica>."""
 
     paciente = request.args.get("paciente")
