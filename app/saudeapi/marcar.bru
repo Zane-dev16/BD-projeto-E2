@@ -1,0 +1,18 @@
+meta {
+  name: marcar
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://127.0.0.1:8080/a/Clínica Harmonia/registar/?paciente=03475459600&medico=736274851&data=2024-06-01&hora=08:00:00
+  body: multipartForm
+  auth: none
+}
+
+query {
+  paciente: 03475459600
+  medico: 736274851
+  data: 2024-06-01
+  hora: 08:00:00
+}
