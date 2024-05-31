@@ -7,11 +7,10 @@ from logging.config import dictConfig
 from flask import Flask, jsonify, request
 from psycopg.rows import namedtuple_row
 from psycopg_pool import ConnectionPool
-from datetime import datetime , date
 
 # Use the DATABASE_URL environment variable if it exists, otherwise use the default.
 # Use the format postgres://username:password@hostname/database_name to connect to the database.
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://bank:bank@postgres/bank")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://saude:saude@postgres/saude")
 
 pool = ConnectionPool(
     conninfo=DATABASE_URL,
@@ -69,7 +68,7 @@ def clnicas():
             clinicas = cur.execute(
                 """
                 SELECT nome, morada
-                FROM clinica
+                FROM clinica;
                 """,
                 {},
             ).fetchall()
@@ -106,7 +105,7 @@ def medico_espec_clinica(clinica, especialidade):
         with conn.cursor() as cur:
             medicos = cur.execute(
                 """
-                SELECT nome, nif
+                SELECT m.nome, m.nif
                 FROM medico m
                 JOIN trabalha t ON m.nif = t.nif
                 WHERE t.nome = %(nome_da_clinica)s
@@ -119,25 +118,33 @@ def medico_espec_clinica(clinica, especialidade):
             resultado = []
 
             for medico in medicos:
-                medico_nome = medico['nome']
-                medico_nif = medico['nif']
+                medico_nome, medico_nif = medico
 
                 horarios = cur.execute(
                     """
-                    SELECT data, hora
-                    FROM consulta
-                    WHERE nif = %(medico_nif)s
-                    AND (data > CURRENT_DATE OR (data = CURRENT_DATE AND hora >= CURRENT_TIME))
-                    ORDER BY data, hora
+                    SELECT hv.data, hv.hora
+                    FROM horarios_validos hv
+                    JOIN trabalha t ON hv.data >= CURRENT_DATE
+                    AND t.dia_da_semana = EXTRACT(DOW FROM hv.data)
+                    LEFT JOIN consulta c ON hv.data = c.data AND hv.hora = c.hora AND c.nif = t.nif
+                    WHERE t.nif = %(medico_nif)s AND t.nome = %(nome_da_clinica)s
+                    AND c.data IS NULL
+                    AND (hv.data > CURRENT_DATE OR (hv.data = CURRENT_DATE AND hv.hora > CURRENT_TIME))
+                    ORDER BY hv.data, hv.hora
                     LIMIT 3;
                     """,
-                    {"medico_nif": medico_nif},
+                    {"medico_nif": medico_nif, "nome_da_clinica": clinica},
                 ).fetchall()
                 log.debug(f"Found {cur.rowcount} rows.")    
 
-                info_medico = [medico_nome, [horario["data"], horario["hora"]] for horario in horarios]
-                resultado.append(info_medico)
+                horarios_bem = [(str(data), str(hora)) for data, hora in horarios]
 
+                info_medico = {
+                    "nome": medico_nome,
+                    "nif": medico_nif,
+                    "horarios_disponiveis": horarios_bem
+                }
+                resultado.append(info_medico)
 
     return jsonify(resultado), 200
 
@@ -154,56 +161,55 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
 
     with pool.connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """ SELECT nome from paciente where ssn = %(paciente)s """
-                ,{"paciente": paciente}
-            )
-            if cur.fetchone() == None:
-                return jsonify({"message": "Patient not found.", "status": "error"}), 404
-            cur.execute(
-                """ SELECT nome from medico where nif = %(medico)s """
-                ,{"medico": medico}
-            )
-            if cur.fetchone() == None:
-                return jsonify({"message": "Doctor not found.", "status": "error"}), 404
-            cur.execute(
-                """ SELECT nome from clinica where nome = %(clinica)s """
-                ,{"clinica": clinica}
-            )
-            if cur.fetchone() == None:
-                return jsonify({"message": "Clinic not found.", "status": "error"}), 404
-            cur.execute(
-                """ SELECT id from consulta WHERE ssn = %(paciente)s AND data = %(data)s AND hora = %(hora)s """
-                ,{"paciente": paciente, "data": data, "hora": hora}
-            )
-            if cur.fetchone() != None:
-                return jsonify({"message": "Patient already busy.", "status": "error"}), 409
-            cur.execute(
-                """ SELECT id from consulta WHERE nif = %(medico)s AND data = %(data)s AND hora = %(hora)s """
-                ,{"medico": medico, "data": data, "hora": hora}
-            )
-            if cur.fetchone() != None:
-                return jsonify({"message": "Doctor already busy.", "status": "error"}), 409
-            cur.execute(
-                """ SELECT * from trabalha WHERE nif = %(medico)s AND nome = %(clinica)s and dia_da_semana = EXTRACT(DOW FROM %(data)s) """
-                ,{"medico": medico, "clinica": clinica, "data": data}
-            ) 
-            if cur.fetchone() == None:
-                return jsonify({"message": "Doctor not working at the clinic at that time.", "status": "error"}), 409
-            cur.execute(
-               """ SELECT MAX(id) from consulta """
-            )
-            id = cur.fetchone()
-            if id == None:
-                id = 1
-            else:
-                id = id[0] + 1
+            
+            trabalha = cur.execute(
+                """
+                SELECT 1
+                FROM trabalha t
+                WHERE t.nif = %(medico)s
+                AND t.nome = %(clinica)s
+                AND t.dia_da_semana = EXTRACT(DOW FROM %(data_consulta)s)
+                """, 
+                {"medico": medico, "clinica": clinica, "data_consulta": data}
+            ).fetchone()
+            if trabalha is None:
+                return jsonify({"message": "Médico não trabalha nesse dia na clínica.", "status": "error"}), 400
+            
+            disponivel_m = cur.execute(
+                """
+                SELECT 1
+                FROM consulta c
+                WHERE c.nif = %(medico)s
+                AND c.data = %(data_consulta)s
+                AND c.hora = %(hora_consulta)s
+                """, {"medico": medico, "data_consulta": data, "hora_consulta": hora}
+            ).fetchone()
+            if disponivel_m is not None:
+                return jsonify({"message": "Médico já tem uma consulta marcada nesse horário.", "status": "error"}), 400
+            
+            disponivel_p = cur.execute(
+                """
+                SELECT 1
+                FROM consulta c
+                WHERE c.ssn = %(paciente)s
+                AND c.data = %(data_consulta)s
+                AND c.hora = %(hora_consulta)s
+                """, {"medico": medico, "data_consulta": data, "hora_consulta": hora}
+            ).fetchone()
+            if disponivel_p is not None:
+                return jsonify({"message": "Paciente já tem uma consulta marcada nesse horário.", "status": "error"}), 400
+
             cur.execute(
                 """
-                INSERT INTO consulta (id, ssn, nif, nome, data, hora, codigo_sns)
-                VALUES (id, paciente, medico, clinica, data, hora, NULL);
+                INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
+                VALUES (paciente, medico, clinica, data, hora, NULL);
+                WHERE paciente = %(paciente)s
+                AND medico = %(medico)s
+                AND clinica = %(clinica)s
+                AND data = %(data)s
+                AND hora = %(hora)s;
                 """,
-                {"id": id,"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
+                {"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
             )
             # The result of this statement is persisted immediately by the database
             # because the connection is in autocommit mode.
@@ -231,44 +237,47 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
 def cancelar_consulta(clinica, paciente, medico, data, hora):
     """Cancela uma marcação de consulta que ainda não se realizou na <clinica>."""
 
+
     paciente = request.args.get("paciente")
     medico = request.args.get("medico")
     data = request.args.get("data")
     hora = request.args.get("hora")
-    ## convert data to datetime python object
-    data = datetime.strptime(data, '%Y-%m-%d')
-    if data.date() < date.today() or (data.date() == date.today() and datetime.strptime(hora, '%H:%M:%S').time() < datetime.now().time()):
-        return jsonify({"message": "Cannot cancel past appointments.", "status": "error"}), 400
-    
+
     with pool.connection() as conn:
         with conn.cursor() as cur:
             try:
                 with conn.transaction():
                     # BEGIN is executed, a transaction started
                     cur.execute(
-                        """ SELECT nome from paciente where ssn = %(paciente)s """
-                        ,{"paciente": paciente}
+                        """
+                        DELETE FROM receita
+                        WHERE codigo_sns IN (
+                            SELECT codigo_sns FROM consulta
+                            WHERE ssn = %(paciente)s
+                            AND nif = %(medico)s
+                            AND nome = %(clinica)s
+                            AND data = %(data)s
+                            AND hora = %(hora)s
+                            AND (data > CURRENT_DATE OR (data = CURRENT_DATE AND hora > CURRENT_TIME))
+                        );
+                        """,
+                        {"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
                     )
-                    if cur.fetchone() == None:
-                        return jsonify({"message": "Patient not found.", "status": "error"}), 404
                     cur.execute(
-                        """ SELECT nome from medico where nif = %(medico)s """
-                        ,{"medico": medico}
+                        """
+                        DELETE FROM observacao
+                        WHERE codigo_sns IN (
+                            SELECT codigo_sns FROM consulta
+                            WHERE ssn = %(paciente)s
+                            AND nif = %(medico)s
+                            AND nome = %(clinica)s
+                            AND data = %(data)s
+                            AND hora = %(hora)s
+                            AND (data > CURRENT_DATE OR (data = CURRENT_DATE AND hora > CURRENT_TIME))
+                        );
+                        """,
+                        {"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
                     )
-                    if cur.fetchone() == None:
-                        return jsonify({"message": "Doctor not found.", "status": "error"}), 404
-                    cur.execute(
-                        """ SELECT nome from consulta where nome = %(clinica)s """
-                        ,{"clinica": clinica}
-                    )
-                    if cur.fetchone() == None:
-                        return jsonify({"message": "Clinic not found.", "status": "error"}), 404
-                    cur.execute(
-                        """ SELECT id from consulta WHERE ssn = %(paciente)s AND nif = %(medico)s AND nome = %(clinica)s AND data = %(data)s AND hora = %(hora)s """
-                        ,{"paciente": paciente, "medico": medico, "clinica": clinica, "data": data, "hora": hora}
-                    )
-                    if cur.fetchone() == None:
-                        return jsonify({"message": "Appointment not found.", "status": "error"}), 404
                     cur.execute(
                         """
                         DELETE FROM consulta
@@ -277,6 +286,7 @@ def cancelar_consulta(clinica, paciente, medico, data, hora):
                         AND nome = %(clinica)s
                         AND data = %(data)s
                         AND hora = %(hora)s
+                        AND (data > CURRENT_DATE OR (data = CURRENT_DATE AND hora > CURRENT_TIME))
                         """,
                         {"clinica": clinica, "paciente": paciente, "medico": medico, "data": data, "hora": hora},
                     )
