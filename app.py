@@ -168,7 +168,7 @@ def check_time(data, hora):
         return 1
 
     if (
-        hora_check.time() < datetime.strptime("09:00:00", "%H:%M:%S").time()
+        hora_check.time() < datetime.strptime("08:00:00", "%H:%M:%S").time()
         or hora_check.time() > datetime.strptime("18:30:00", "%H:%M:%S").time()
         or (
             hora_check.time() > datetime.strptime("12:30:00", "%H:%M:%S").time()
@@ -366,7 +366,6 @@ def marcar_consulta(clinica):
 @app.route(
     "/a/<clinica>/cancelar/",
     methods=(
-        "DELETE",
         "POST",
     ),
 )
