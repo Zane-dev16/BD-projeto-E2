@@ -235,7 +235,7 @@ def marcar_consulta(clinica, paciente, medico, data, hora):
                 WHERE p.ssn = %(paciente)s
                 """,
                 {"paciente": paciente},
-            ).fetchone()
+            ).fetchone() 
             if patient is None:
                 return (
                     jsonify({"message": "Paciente não encontrado.", "status": "error"}),
