@@ -462,7 +462,6 @@ def cancelar_consulta(clinica, paciente, medico, data, hora):
                         AND nome = %(clinica)s
                         AND data = %(data)s
                         AND hora = %(hora)s
-                        AND (data > CURRENT_DATE OR (data = CURRENT_DATE AND hora > CURRENT_TIME))
                         """,
                         {
                             "clinica": clinica,
