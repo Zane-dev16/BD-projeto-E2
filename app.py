@@ -243,7 +243,18 @@ def marcar_consulta(clinica):
                     jsonify({"message": "Paciente não encontrado.", "status": "error"}),
                     404,
                 )
-
+            medicoispatient = cur.execute(
+                """ 
+                SELECT nif FROM paciente WHERE paciente.ssn = %(paciente)s and paciente.nif = %(medico)s
+                """,
+                {"paciente": paciente, "medico": medico},
+            ).fetchone()
+            if medicoispatient is not None:
+                return (
+                    jsonify({"message": "Médico não pode ser paciente.", "status": "error"}),
+                    400,
+                )
+            
             clinica_tp = cur.execute(
                 """
                 SELECT 1
