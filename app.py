@@ -163,18 +163,20 @@ def check_time(data, hora):
     except ValueError:
         return -1
     if data_check.date() < date.today() or (
-        data_check.date() == date.today() and hora_check < datetime.now()
+        data_check.date() == date.today() and hora_check.time() < datetime.now().time()
     ):
         return 1
+
     if (
-        hora_check < datetime.strptime("09:00:00", "%H:%M:%S")
-        or hora_check > datetime.strptime("18:30:00", "%H:%M:%S")
+        hora_check.time() < datetime.strptime("09:00:00", "%H:%M:%S").time()
+        or hora_check.time() > datetime.strptime("18:30:00", "%H:%M:%S").time()
         or (
-            hora_check > datetime.strptime("12:30:00", "%H:%M:%S")
-            and hora_check < datetime.strptime("14:00:00", "%H:%M:%S")
+            hora_check.time() > datetime.strptime("12:30:00", "%H:%M:%S").time()
+            and hora_check.time() < datetime.strptime("14:00:00", "%H:%M:%S").time()
         )
     ):
         return 2
+   
     if (hora_check.minute != 30 and hora_check.minute != 0) or hora_check.second != 0:
         return 2
     return 0
@@ -262,7 +264,7 @@ def marcar_consulta(clinica):
                 FROM trabalha t
                 WHERE t.nif = %(medico)s
                 AND t.nome = %(clinica)s
-                AND t.dia_da_semana = EXTRACT(DOW FROM %(data_consulta)s)
+                AND t.dia_da_semana = EXTRACT(DOW FROM %(data_consulta)s::date)
                 """,
                 {"medico": medico, "clinica": clinica, "data_consulta": data},
             ).fetchone()
@@ -306,7 +308,7 @@ def marcar_consulta(clinica):
                 AND c.data = %(data_consulta)s
                 AND c.hora = %(hora_consulta)s
                 """,
-                {"medico": medico, "data_consulta": data, "hora_consulta": hora},
+                {"paciente": paciente, "data_consulta": data, "hora_consulta": hora},
             ).fetchone()
             if disponivel_p is not None:
                 return (
@@ -322,12 +324,7 @@ def marcar_consulta(clinica):
             cur.execute(
                 """
                 INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
-                VALUES (paciente, medico, clinica, data, hora, NULL);
-                WHERE paciente = %(paciente)s
-                AND medico = %(medico)s
-                AND clinica = %(clinica)s
-                AND data = %(data)s
-                AND hora = %(hora)s;
+                VALUES (%(paciente)s, %(medico)s, %(clinica)s, %(data)s, %(hora)s, NULL);
                 """,
                 {
                     "clinica": clinica,
